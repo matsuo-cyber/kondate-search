@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Recipe } from "@/components/RecipeCard";
+import { supabase } from "@/lib/supabase";
+import { getSessionId } from "@/lib/session";
 
 const DAYS = ["月", "火", "水", "木", "金", "土", "日"];
 
@@ -14,38 +16,73 @@ export default function WeeklyPlanPage() {
   const [plan, setPlan] = useState<Plan>(emptyPlan());
   const [favorites, setFavorites] = useState<Recipe[]>([]);
   const [selecting, setSelecting] = useState<{ day: string; meal: "lunch" | "dinner" } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem("weeklyPlan");
-    if (stored) setPlan(JSON.parse(stored));
-    const fav = localStorage.getItem("favorites");
-    if (fav) setFavorites(JSON.parse(fav));
+    const sessionId = getSessionId();
+    Promise.all([
+      supabase.from("weekly_plan").select("*").eq("session_id", sessionId),
+      supabase.from("favorites").select("*").eq("session_id", sessionId),
+    ]).then(([{ data: planData }, { data: favData }]) => {
+      if (planData) {
+        const newPlan = emptyPlan();
+        planData.forEach((row: Record<string, string>) => {
+          const meal = row.meal_type as "lunch" | "dinner";
+          newPlan[row.day][meal] = {
+            title: row.title,
+            link: row.link,
+            snippet: row.snippet,
+            image: row.image,
+          };
+        });
+        setPlan(newPlan);
+      }
+      if (favData) setFavorites(favData as Recipe[]);
+      setLoading(false);
+    });
   }, []);
 
-  const savePlan = (updated: Plan) => {
-    localStorage.setItem("weeklyPlan", JSON.stringify(updated));
-    setPlan(updated);
-  };
-
-  const assign = (recipe: Recipe) => {
+  const assign = async (recipe: Recipe) => {
     if (!selecting) return;
-    const updated = {
-      ...plan,
-      [selecting.day]: { ...plan[selecting.day], [selecting.meal]: recipe },
-    };
-    savePlan(updated);
+    const sessionId = getSessionId();
+    await supabase
+      .from("weekly_plan")
+      .delete()
+      .eq("session_id", sessionId)
+      .eq("day", selecting.day)
+      .eq("meal_type", selecting.meal);
+    await supabase.from("weekly_plan").insert({
+      session_id: sessionId,
+      day: selecting.day,
+      meal_type: selecting.meal,
+      title: recipe.title,
+      link: recipe.link,
+      snippet: recipe.snippet,
+      image: recipe.image,
+    });
+    setPlan((prev) => ({
+      ...prev,
+      [selecting.day]: { ...prev[selecting.day], [selecting.meal]: recipe },
+    }));
     setSelecting(null);
   };
 
-  const remove = (day: string, meal: "lunch" | "dinner") => {
-    const updated = { ...plan, [day]: { ...plan[day], [meal]: null } };
-    savePlan(updated);
+  const remove = async (day: string, meal: "lunch" | "dinner") => {
+    const sessionId = getSessionId();
+    await supabase
+      .from("weekly_plan")
+      .delete()
+      .eq("session_id", sessionId)
+      .eq("day", day)
+      .eq("meal_type", meal);
+    setPlan((prev) => ({ ...prev, [day]: { ...prev[day], [meal]: null } }));
   };
+
+  if (loading) return <p className="text-gray-400 text-sm text-center mt-12">読み込み中...</p>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">週間献立プラン</h1>
-
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>

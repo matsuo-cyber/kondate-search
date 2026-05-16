@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import RecipeCard, { Recipe } from "@/components/RecipeCard";
+import { supabase } from "@/lib/supabase";
+import { getSessionId } from "@/lib/session";
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -11,8 +13,14 @@ export default function Home() {
   const [favorites, setFavorites] = useState<Recipe[]>([]);
 
   useEffect(() => {
-    const stored = localStorage.getItem("favorites");
-    if (stored) setFavorites(JSON.parse(stored));
+    const sessionId = getSessionId();
+    supabase
+      .from("favorites")
+      .select("*")
+      .eq("session_id", sessionId)
+      .then(({ data }) => {
+        if (data) setFavorites(data as Recipe[]);
+      });
   }, []);
 
   const search = async (e: React.FormEvent) => {
@@ -33,15 +41,22 @@ export default function Home() {
     }
   };
 
-  const toggleFavorite = (recipe: Recipe) => {
-    const stored = localStorage.getItem("favorites");
-    const current: Recipe[] = stored ? JSON.parse(stored) : [];
-    const exists = current.some((r) => r.link === recipe.link);
-    const updated = exists
-      ? current.filter((r) => r.link !== recipe.link)
-      : [...current, recipe];
-    localStorage.setItem("favorites", JSON.stringify(updated));
-    setFavorites(updated);
+  const toggleFavorite = async (recipe: Recipe) => {
+    const sessionId = getSessionId();
+    const exists = favorites.some((r) => r.link === recipe.link);
+    if (exists) {
+      await supabase.from("favorites").delete().eq("session_id", sessionId).eq("link", recipe.link);
+      setFavorites((prev) => prev.filter((r) => r.link !== recipe.link));
+    } else {
+      await supabase.from("favorites").insert({
+        session_id: sessionId,
+        title: recipe.title,
+        link: recipe.link,
+        snippet: recipe.snippet,
+        image: recipe.image,
+      });
+      setFavorites((prev) => [...prev, recipe]);
+    }
   };
 
   const isFavorite = (recipe: Recipe) => favorites.some((r) => r.link === recipe.link);

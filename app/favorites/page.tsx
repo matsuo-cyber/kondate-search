@@ -2,20 +2,32 @@
 
 import { useState, useEffect } from "react";
 import RecipeCard, { Recipe } from "@/components/RecipeCard";
+import { supabase } from "@/lib/supabase";
+import { getSessionId } from "@/lib/session";
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem("favorites");
-    if (stored) setFavorites(JSON.parse(stored));
+    const sessionId = getSessionId();
+    supabase
+      .from("favorites")
+      .select("*")
+      .eq("session_id", sessionId)
+      .then(({ data }) => {
+        if (data) setFavorites(data as Recipe[]);
+        setLoading(false);
+      });
   }, []);
 
-  const toggleFavorite = (recipe: Recipe) => {
-    const updated = favorites.filter((r) => r.link !== recipe.link);
-    localStorage.setItem("favorites", JSON.stringify(updated));
-    setFavorites(updated);
+  const toggleFavorite = async (recipe: Recipe) => {
+    const sessionId = getSessionId();
+    await supabase.from("favorites").delete().eq("session_id", sessionId).eq("link", recipe.link);
+    setFavorites((prev) => prev.filter((r) => r.link !== recipe.link));
   };
+
+  if (loading) return <p className="text-gray-400 text-sm text-center mt-12">読み込み中...</p>;
 
   return (
     <div>
