@@ -1,6 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const rateLimit = new Map<string, { count: number; resetAt: number }>();
+const LIMIT = 10;
+const WINDOW_MS = 60 * 1000;
+
+function checkRate(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimit.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimit.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  if (!checkRate(ip)) {
+    return NextResponse.json(
+      { error: "リクエストが多すぎます。1分後に再試行してください。" },
+      { status: 429 }
+    );
+  }
+
   const query = request.nextUrl.searchParams.get("q");
   if (!query) {
     return NextResponse.json({ error: "クエリが必要です" }, { status: 400 });
