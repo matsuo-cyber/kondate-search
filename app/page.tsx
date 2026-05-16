@@ -83,16 +83,18 @@ export default function Home() {
     if (!user) return;
     const exists = favorites.some((r) => r.link === recipe.link);
     if (exists) {
-      await supabase.from("favorites").delete().eq("user_id", user.id).eq("link", recipe.link);
+      const { error } = await supabase.from("favorites").delete().eq("user_id", user.id).eq("link", recipe.link);
+      if (error) { setError("削除に失敗しました: " + error.message); return; }
       setFavorites((prev) => prev.filter((r) => r.link !== recipe.link));
     } else {
-      await supabase.from("favorites").insert({
+      const { error } = await supabase.from("favorites").insert({
         user_id: user.id,
         title: recipe.title,
         link: recipe.link,
         snippet: recipe.snippet,
         image: recipe.image,
       });
+      if (error) { setError("お気に入りの保存に失敗しました: " + error.message); return; }
       setFavorites((prev) => [...prev, recipe]);
     }
   };
