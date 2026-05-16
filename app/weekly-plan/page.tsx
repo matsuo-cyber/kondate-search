@@ -3,12 +3,10 @@
 import { useState, useEffect } from "react";
 import { Recipe } from "@/components/RecipeCard";
 import { supabase } from "@/lib/supabase";
-import { getSessionId } from "@/lib/session";
+import type { User } from "@supabase/supabase-js";
 
 const DAYS = ["月", "火", "水", "木", "金", "土", "日"];
-
 type Plan = Record<string, { lunch: Recipe | null; dinner: Recipe | null }>;
-
 const emptyPlan = (): Plan =>
   Object.fromEntries(DAYS.map((d) => [d, { lunch: null, dinner: null }]));
 
@@ -16,43 +14,49 @@ export default function WeeklyPlanPage() {
   const [plan, setPlan] = useState<Plan>(emptyPlan());
   const [favorites, setFavorites] = useState<Recipe[]>([]);
   const [selecting, setSelecting] = useState<{ day: string; meal: "lunch" | "dinner" } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const sessionId = getSessionId();
-    Promise.all([
-      supabase.from("weekly_plan").select("*").eq("session_id", sessionId),
-      supabase.from("favorites").select("*").eq("session_id", sessionId),
-    ]).then(([{ data: planData }, { data: favData }]) => {
-      if (planData) {
-        const newPlan = emptyPlan();
-        planData.forEach((row: Record<string, string>) => {
-          const meal = row.meal_type as "lunch" | "dinner";
-          newPlan[row.day][meal] = {
-            title: row.title,
-            link: row.link,
-            snippet: row.snippet,
-            image: row.image,
-          };
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) {
+        Promise.all([
+          supabase.from("weekly_plan").select("*").eq("user_id", data.user.id),
+          supabase.from("favorites").select("*").eq("user_id", data.user.id),
+        ]).then(([{ data: planData }, { data: favData }]) => {
+          if (planData) {
+            const newPlan = emptyPlan();
+            planData.forEach((row: Record<string, string>) => {
+              const meal = row.meal_type as "lunch" | "dinner";
+              newPlan[row.day][meal] = {
+                title: row.title,
+                link: row.link,
+                snippet: row.snippet,
+                image: row.image,
+              };
+            });
+            setPlan(newPlan);
+          }
+          if (favData) setFavorites(favData as Recipe[]);
+          setLoading(false);
         });
-        setPlan(newPlan);
+      } else {
+        setLoading(false);
       }
-      if (favData) setFavorites(favData as Recipe[]);
-      setLoading(false);
     });
   }, []);
 
   const assign = async (recipe: Recipe) => {
-    if (!selecting) return;
-    const sessionId = getSessionId();
+    if (!selecting || !user) return;
     await supabase
       .from("weekly_plan")
       .delete()
-      .eq("session_id", sessionId)
+      .eq("user_id", user.id)
       .eq("day", selecting.day)
       .eq("meal_type", selecting.meal);
     await supabase.from("weekly_plan").insert({
-      session_id: sessionId,
+      user_id: user.id,
       day: selecting.day,
       meal_type: selecting.meal,
       title: recipe.title,
@@ -68,17 +72,18 @@ export default function WeeklyPlanPage() {
   };
 
   const remove = async (day: string, meal: "lunch" | "dinner") => {
-    const sessionId = getSessionId();
-    await supabase
-      .from("weekly_plan")
-      .delete()
-      .eq("session_id", sessionId)
-      .eq("day", day)
-      .eq("meal_type", meal);
+    if (!user) return;
+    await supabase.from("weekly_plan").delete().eq("user_id", user.id).eq("day", day).eq("meal_type", meal);
     setPlan((prev) => ({ ...prev, [day]: { ...prev[day], [meal]: null } }));
   };
 
   if (loading) return <p className="text-gray-400 text-sm text-center mt-12">読み込み中...</p>;
+
+  if (!user) return (
+    <div className="text-center mt-12">
+      <p className="text-gray-500 mb-4">週間プランを使うにはログインが必要です。</p>
+    </div>
+  );
 
   return (
     <div>
@@ -107,26 +112,17 @@ export default function WeeklyPlanPage() {
                     <td key={day} className="p-1 border align-top">
                       {recipe ? (
                         <div className="bg-orange-50 rounded p-1 text-xs">
-                          <a
-                            href={recipe.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-orange-600 hover:underline line-clamp-2 block"
-                          >
+                          <a href={recipe.link} target="_blank" rel="noopener noreferrer"
+                            className="text-orange-600 hover:underline line-clamp-2 block">
                             {recipe.title}
                           </a>
-                          <button
-                            onClick={() => remove(day, meal)}
-                            className="text-gray-400 hover:text-red-400 mt-1"
-                          >
+                          <button onClick={() => remove(day, meal)} className="text-gray-400 hover:text-red-400 mt-1">
                             ✕ 削除
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => setSelecting({ day, meal })}
-                          className="w-full h-12 border border-dashed border-gray-300 rounded text-gray-400 hover:border-orange-400 hover:text-orange-400 text-xs transition-colors"
-                        >
+                        <button onClick={() => setSelecting({ day, meal })}
+                          className="w-full h-12 border border-dashed border-gray-300 rounded text-gray-400 hover:border-orange-400 hover:text-orange-400 text-xs transition-colors">
                           ＋
                         </button>
                       )}
@@ -146,27 +142,20 @@ export default function WeeklyPlanPage() {
               {selecting.day}曜・{selecting.meal === "lunch" ? "昼" : "夜"}のレシピを選ぶ
             </h2>
             {favorites.length === 0 ? (
-              <p className="text-gray-400 text-sm">
-                お気に入りがありません。先に検索ページでお気に入りを追加してください。
-              </p>
+              <p className="text-gray-400 text-sm">お気に入りがありません。先に検索ページでお気に入りを追加してください。</p>
             ) : (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
                 {favorites.map((r) => (
                   <li key={r.link}>
-                    <button
-                      onClick={() => assign(r)}
-                      className="w-full text-left text-sm p-2 rounded hover:bg-orange-50 border border-transparent hover:border-orange-200 transition-colors"
-                    >
+                    <button onClick={() => assign(r)}
+                      className="w-full text-left text-sm p-2 rounded hover:bg-orange-50 border border-transparent hover:border-orange-200 transition-colors">
                       {r.title}
                     </button>
                   </li>
                 ))}
               </ul>
             )}
-            <button
-              onClick={() => setSelecting(null)}
-              className="mt-4 text-sm text-gray-400 hover:text-gray-600"
-            >
+            <button onClick={() => setSelecting(null)} className="mt-4 text-sm text-gray-400 hover:text-gray-600">
               キャンセル
             </button>
           </div>

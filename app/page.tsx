@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import RecipeCard, { Recipe } from "@/components/RecipeCard";
 import { supabase } from "@/lib/supabase";
-import { getSessionId } from "@/lib/session";
+import type { User } from "@supabase/supabase-js";
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -11,16 +11,36 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [favorites, setFavorites] = useState<Recipe[]>([]);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const sessionId = getSessionId();
-    supabase
-      .from("favorites")
-      .select("*")
-      .eq("session_id", sessionId)
-      .then(({ data }) => {
-        if (data) setFavorites(data as Recipe[]);
-      });
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) {
+        supabase
+          .from("favorites")
+          .select("*")
+          .eq("user_id", data.user.id)
+          .then(({ data: favs }) => {
+            if (favs) setFavorites(favs as Recipe[]);
+          });
+      }
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        supabase
+          .from("favorites")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .then(({ data: favs }) => {
+            if (favs) setFavorites(favs as Recipe[]);
+          });
+      } else {
+        setFavorites([]);
+      }
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   const search = async (e: React.FormEvent) => {
@@ -42,14 +62,14 @@ export default function Home() {
   };
 
   const toggleFavorite = async (recipe: Recipe) => {
-    const sessionId = getSessionId();
+    if (!user) return;
     const exists = favorites.some((r) => r.link === recipe.link);
     if (exists) {
-      await supabase.from("favorites").delete().eq("session_id", sessionId).eq("link", recipe.link);
+      await supabase.from("favorites").delete().eq("user_id", user.id).eq("link", recipe.link);
       setFavorites((prev) => prev.filter((r) => r.link !== recipe.link));
     } else {
       await supabase.from("favorites").insert({
-        session_id: sessionId,
+        user_id: user.id,
         title: recipe.title,
         link: recipe.link,
         snippet: recipe.snippet,
@@ -64,6 +84,13 @@ export default function Home() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">献立を検索する</h1>
+
+      {!user && (
+        <p className="text-sm text-orange-500 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 mb-6">
+          ログインするとお気に入りや週間プランがどのデバイスからでも使えます。
+        </p>
+      )}
+
       <form onSubmit={search} className="flex gap-2 mb-8">
         <input
           type="text"

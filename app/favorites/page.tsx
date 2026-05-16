@@ -3,31 +3,44 @@
 import { useState, useEffect } from "react";
 import RecipeCard, { Recipe } from "@/components/RecipeCard";
 import { supabase } from "@/lib/supabase";
-import { getSessionId } from "@/lib/session";
+import type { User } from "@supabase/supabase-js";
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<Recipe[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const sessionId = getSessionId();
-    supabase
-      .from("favorites")
-      .select("*")
-      .eq("session_id", sessionId)
-      .then(({ data }) => {
-        if (data) setFavorites(data as Recipe[]);
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) {
+        supabase
+          .from("favorites")
+          .select("*")
+          .eq("user_id", data.user.id)
+          .then(({ data: favs }) => {
+            if (favs) setFavorites(favs as Recipe[]);
+            setLoading(false);
+          });
+      } else {
         setLoading(false);
-      });
+      }
+    });
   }, []);
 
   const toggleFavorite = async (recipe: Recipe) => {
-    const sessionId = getSessionId();
-    await supabase.from("favorites").delete().eq("session_id", sessionId).eq("link", recipe.link);
+    if (!user) return;
+    await supabase.from("favorites").delete().eq("user_id", user.id).eq("link", recipe.link);
     setFavorites((prev) => prev.filter((r) => r.link !== recipe.link));
   };
 
   if (loading) return <p className="text-gray-400 text-sm text-center mt-12">読み込み中...</p>;
+
+  if (!user) return (
+    <div className="text-center mt-12">
+      <p className="text-gray-500 mb-4">お気に入りを保存するにはログインが必要です。</p>
+    </div>
+  );
 
   return (
     <div>
