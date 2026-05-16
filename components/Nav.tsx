@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "検索" },
   { href: "/favorites", label: "お気に入り" },
   { href: "/weekly-plan", label: "週間プラン" },
+  { href: "/shopping-list", label: "買い物リスト" },
 ];
 
 export default function Nav() {
