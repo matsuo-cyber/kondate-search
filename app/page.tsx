@@ -80,7 +80,10 @@ export default function Home() {
   };
 
   const toggleFavorite = async (recipe: Recipe) => {
-    if (!user) return;
+    if (!user) {
+      setError("お気に入りを保存するにはログインしてください");
+      return;
+    }
     const exists = favorites.some((r) => r.link === recipe.link);
     if (exists) {
       const { error } = await supabase.from("favorites").delete().eq("user_id", user.id).eq("link", recipe.link);
