@@ -17,7 +17,12 @@ export default function RecipeCard({ recipe, isFavorite, onToggleFavorite }: Pro
   return (
     <div className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white">
       {recipe.image && (
-        <img src={recipe.image} alt={recipe.title} className="w-full h-40 object-cover" />
+        <img
+          src={recipe.image}
+          alt={recipe.title}
+          className="w-full h-40 object-cover"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
       )}
       <div className="p-3">
         <a

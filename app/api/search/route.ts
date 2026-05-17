@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     title: item.title,
     link: item.link,
     snippet: item.snippet,
-    image: null,
+    image: (item.imageUrl as string) ?? null,
   }));
 
   return NextResponse.json({ items });
