@@ -128,6 +128,45 @@ function inferIngredients(title: string): { name: string; category: Category }[]
   return results;
 }
 
+const QUICK_ADD: { label: string; items: { name: string; category: Category }[] }[] = [
+  { label: "肉類", items: [
+    { name: "鶏むね肉", category: "肉・魚介" }, { name: "鶏もも肉", category: "肉・魚介" },
+    { name: "豚バラ", category: "肉・魚介" }, { name: "豚ロース", category: "肉・魚介" },
+    { name: "牛肉", category: "肉・魚介" }, { name: "合い挽き肉", category: "肉・魚介" },
+    { name: "ベーコン", category: "肉・魚介" }, { name: "ウインナー", category: "肉・魚介" },
+  ]},
+  { label: "魚介", items: [
+    { name: "鮭", category: "肉・魚介" }, { name: "さば", category: "肉・魚介" },
+    { name: "えび", category: "肉・魚介" }, { name: "あさり", category: "肉・魚介" },
+    { name: "ぶり", category: "肉・魚介" }, { name: "たら", category: "肉・魚介" },
+    { name: "ツナ缶", category: "肉・魚介" }, { name: "ちくわ", category: "肉・魚介" },
+  ]},
+  { label: "野菜", items: [
+    { name: "玉ねぎ", category: "野菜" }, { name: "にんじん", category: "野菜" },
+    { name: "じゃがいも", category: "野菜" }, { name: "キャベツ", category: "野菜" },
+    { name: "白菜", category: "野菜" }, { name: "ほうれん草", category: "野菜" },
+    { name: "小松菜", category: "野菜" }, { name: "ブロッコリー", category: "野菜" },
+    { name: "トマト", category: "野菜" }, { name: "なす", category: "野菜" },
+    { name: "ピーマン", category: "野菜" }, { name: "もやし", category: "野菜" },
+    { name: "大根", category: "野菜" }, { name: "ごぼう", category: "野菜" },
+    { name: "れんこん", category: "野菜" }, { name: "豆苗", category: "野菜" },
+    { name: "しいたけ", category: "野菜" }, { name: "えのき", category: "野菜" },
+    { name: "ねぎ", category: "野菜" }, { name: "にんにく", category: "野菜" },
+  ]},
+  { label: "豆腐・卵", items: [
+    { name: "卵", category: "豆腐・卵" }, { name: "豆腐", category: "豆腐・卵" },
+    { name: "納豆", category: "豆腐・卵" }, { name: "厚揚げ", category: "豆腐・卵" },
+    { name: "油揚げ", category: "豆腐・卵" }, { name: "チーズ", category: "豆腐・卵" },
+  ]},
+  { label: "調味料・その他", items: [
+    { name: "醤油", category: "調味料・その他" }, { name: "みりん", category: "調味料・その他" },
+    { name: "味噌", category: "調味料・その他" }, { name: "砂糖", category: "調味料・その他" },
+    { name: "酒", category: "調味料・その他" }, { name: "ごま油", category: "調味料・その他" },
+    { name: "片栗粉", category: "調味料・その他" }, { name: "小麦粉", category: "調味料・その他" },
+    { name: "パン粉", category: "調味料・その他" }, { name: "だし", category: "調味料・その他" },
+  ]},
+];
+
 export default function ShoppingListPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [recipes, setRecipes] = useState<string[]>([]);
@@ -136,6 +175,7 @@ export default function ShoppingListPage() {
   const [newItem, setNewItem] = useState("");
   const [newCategory, setNewCategory] = useState<Category>("調味料・その他");
   const [showRecipes, setShowRecipes] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   const loadFromPlan = (planData: Record<string, string>[]) => {
     const seen = new Set<string>();
@@ -198,6 +238,13 @@ export default function ShoppingListPage() {
 
   const clearChecked = () => {
     setItems((prev) => prev.filter((i) => !i.checked));
+  };
+
+  const quickAdd = (food: { name: string; category: Category }) => {
+    setItems((prev) => {
+      if (prev.find((i) => i.name === food.name)) return prev;
+      return [...prev, { id: crypto.randomUUID(), name: food.name, category: food.category, checked: false, auto: false }];
+    });
   };
 
   if (loading) return <p className="text-gray-400 text-sm text-center mt-12">読み込み中...</p>;
@@ -298,6 +345,44 @@ export default function ShoppingListPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* 定番食材クイック追加 */}
+      <div className="border-t pt-4 mb-4">
+        <button
+          onClick={() => setShowQuickAdd(!showQuickAdd)}
+          className="w-full text-left text-sm font-medium text-orange-600 bg-orange-50 rounded-lg px-4 py-3 hover:bg-orange-100 transition-colors"
+        >
+          ＋ 定番食材から追加 {showQuickAdd ? "▲" : "▼"}
+        </button>
+        {showQuickAdd && (
+          <div className="mt-3 space-y-3">
+            {QUICK_ADD.map((group) => (
+              <div key={group.label}>
+                <p className="text-xs font-semibold text-gray-500 mb-1">{group.label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {group.items.map((food) => {
+                    const already = items.some((i) => i.name === food.name);
+                    return (
+                      <button
+                        key={food.name}
+                        onClick={() => quickAdd(food)}
+                        disabled={already}
+                        className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                          already
+                            ? "bg-gray-100 text-gray-400 border-gray-200 cursor-default"
+                            : "bg-white text-gray-700 border-gray-300 hover:border-orange-400 hover:text-orange-500"
+                        }`}
+                      >
+                        {already ? "✓ " : ""}{food.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 手動追加 */}
