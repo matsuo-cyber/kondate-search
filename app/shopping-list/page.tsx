@@ -176,16 +176,23 @@ export default function ShoppingListPage() {
   const [newCategory, setNewCategory] = useState<Category>("調味料・その他");
   const [showRecipes, setShowRecipes] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [scraping, setScraping] = useState(false);
 
-  const loadFromPlan = (planData: Record<string, string>[]) => {
+  function guessCategory(name: string): Category {
+    const found = FOOD_WORDS.find((f) => name.includes(f.name) || f.name.includes(name));
+    return found?.category ?? "調味料・その他";
+  }
+
+  const loadFromPlan = async (planData: Record<string, string>[]) => {
     const seen = new Set<string>();
     const autoItems: Item[] = [];
     const titles: string[] = [];
+    const links: string[] = [];
 
     planData.forEach((row) => {
       titles.push(row.title);
-      const inferred = inferIngredients(row.title);
-      inferred.forEach((ing) => {
+      links.push(row.link);
+      inferIngredients(row.title).forEach((ing) => {
         if (!seen.has(ing.name)) {
           seen.add(ing.name);
           autoItems.push({ id: crypto.randomUUID(), name: ing.name, category: ing.category, checked: false, auto: true });
@@ -198,6 +205,32 @@ export default function ShoppingListPage() {
       const manual = prev.filter((i) => !i.auto);
       return [...autoItems, ...manual];
     });
+
+    // レシピページから材料をスクレイピング（非同期）
+    if (links.length === 0) return;
+    setScraping(true);
+    const uniqueLinks = [...new Set(links)];
+    await Promise.all(
+      uniqueLinks.map(async (link) => {
+        try {
+          const res = await fetch(`/api/ingredients?url=${encodeURIComponent(link)}`);
+          const { ingredients } = await res.json() as { ingredients: string[] };
+          if (!ingredients?.length) return;
+          setItems((prev) => {
+            const next = [...prev];
+            const existingNames = new Set(next.map((i) => i.name));
+            for (const name of ingredients) {
+              if (name && name.length <= 20 && !existingNames.has(name)) {
+                existingNames.add(name);
+                next.push({ id: crypto.randomUUID(), name, category: guessCategory(name), checked: false, auto: true });
+              }
+            }
+            return next;
+          });
+        } catch { /* ignore */ }
+      })
+    );
+    setScraping(false);
   };
 
   useEffect(() => {
@@ -217,7 +250,7 @@ export default function ShoppingListPage() {
   const reload = async () => {
     if (!user) return;
     const { data: planData } = await supabase.from("weekly_plan").select("*").eq("user_id", user.id);
-    if (planData) loadFromPlan(planData as Record<string, string>[]);
+    if (planData) await loadFromPlan(planData as Record<string, string>[]);
   };
 
   const toggle = (id: string) => {
@@ -288,6 +321,7 @@ export default function ShoppingListPage() {
         className="w-full text-left text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mb-4 hover:bg-gray-100 transition-colors"
       >
         週間プランから {recipes.length} 件のレシピを読み込み・{autoCount} 種類の食材を自動検出
+        {scraping && <span className="ml-2 text-orange-400">（レシピページから材料取得中...）</span>}
         <span className="ml-1">{showRecipes ? "▲" : "▼"}</span>
       </button>
 
