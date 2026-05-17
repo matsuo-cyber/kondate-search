@@ -55,6 +55,50 @@ const INGREDIENT_MAP: { keywords: string[]; items: { name: string; category: Cat
   { keywords: ["ポトフ"], items: [{ name: "ウインナー", category: "肉・魚介" }, { name: "じゃがいも", category: "野菜" }, { name: "にんじん", category: "野菜" }, { name: "玉ねぎ", category: "野菜" }] },
 ];
 
+// タイトルに食材名が直接含まれる場合に検出するリスト
+const FOOD_WORDS: { name: string; category: Category }[] = [
+  // 肉
+  { name: "鶏むね肉", category: "肉・魚介" }, { name: "鶏もも肉", category: "肉・魚介" },
+  { name: "鶏ひき肉", category: "肉・魚介" }, { name: "鶏肉", category: "肉・魚介" },
+  { name: "豚バラ", category: "肉・魚介" }, { name: "豚ロース", category: "肉・魚介" },
+  { name: "豚ひき肉", category: "肉・魚介" }, { name: "豚肉", category: "肉・魚介" },
+  { name: "牛バラ", category: "肉・魚介" }, { name: "牛ひき肉", category: "肉・魚介" },
+  { name: "牛肉", category: "肉・魚介" }, { name: "合い挽き肉", category: "肉・魚介" },
+  { name: "ひき肉", category: "肉・魚介" }, { name: "ベーコン", category: "肉・魚介" },
+  { name: "ウインナー", category: "肉・魚介" }, { name: "ソーセージ", category: "肉・魚介" },
+  // 魚介
+  { name: "鮭", category: "肉・魚介" }, { name: "さば", category: "肉・魚介" },
+  { name: "さんま", category: "肉・魚介" }, { name: "あじ", category: "肉・魚介" },
+  { name: "ぶり", category: "肉・魚介" }, { name: "たら", category: "肉・魚介" },
+  { name: "いわし", category: "肉・魚介" }, { name: "まぐろ", category: "肉・魚介" },
+  { name: "えび", category: "肉・魚介" }, { name: "いか", category: "肉・魚介" },
+  { name: "たこ", category: "肉・魚介" }, { name: "あさり", category: "肉・魚介" },
+  { name: "ほたて", category: "肉・魚介" }, { name: "ツナ", category: "肉・魚介" },
+  // 野菜
+  { name: "じゃがいも", category: "野菜" }, { name: "さつまいも", category: "野菜" },
+  { name: "玉ねぎ", category: "野菜" }, { name: "にんじん", category: "野菜" },
+  { name: "大根", category: "野菜" }, { name: "白菜", category: "野菜" },
+  { name: "キャベツ", category: "野菜" }, { name: "レタス", category: "野菜" },
+  { name: "ほうれん草", category: "野菜" }, { name: "小松菜", category: "野菜" },
+  { name: "ブロッコリー", category: "野菜" }, { name: "なす", category: "野菜" },
+  { name: "ピーマン", category: "野菜" }, { name: "パプリカ", category: "野菜" },
+  { name: "トマト", category: "野菜" }, { name: "きゅうり", category: "野菜" },
+  { name: "ごぼう", category: "野菜" }, { name: "れんこん", category: "野菜" },
+  { name: "もやし", category: "野菜" }, { name: "ニラ", category: "野菜" },
+  { name: "ねぎ", category: "野菜" }, { name: "しいたけ", category: "野菜" },
+  { name: "えのき", category: "野菜" }, { name: "しめじ", category: "野菜" },
+  { name: "にんにく", category: "野菜" }, { name: "しょうが", category: "野菜" },
+  { name: "アスパラ", category: "野菜" }, { name: "かぼちゃ", category: "野菜" },
+  { name: "とうもろこし", category: "野菜" }, { name: "オクラ", category: "野菜" },
+  // 豆腐・卵・乳製品
+  { name: "豆腐", category: "豆腐・卵" }, { name: "納豆", category: "豆腐・卵" },
+  { name: "厚揚げ", category: "豆腐・卵" }, { name: "油揚げ", category: "豆腐・卵" },
+  { name: "卵", category: "豆腐・卵" }, { name: "チーズ", category: "豆腐・卵" },
+  // 炭水化物・その他
+  { name: "パスタ", category: "調味料・その他" }, { name: "うどん", category: "調味料・その他" },
+  { name: "そば", category: "調味料・その他" }, { name: "ラーメン", category: "調味料・その他" },
+];
+
 const CATEGORY_ORDER: Category[] = ["肉・魚介", "野菜", "豆腐・卵", "調味料・その他"];
 const CATEGORY_COLORS: Record<Category, string> = {
   "肉・魚介": "text-red-600 bg-red-50",
@@ -65,13 +109,18 @@ const CATEGORY_COLORS: Record<Category, string> = {
 
 function inferIngredients(title: string): { name: string; category: Category }[] {
   const results: { name: string; category: Category }[] = [];
+  // 料理名マッチング
   for (const entry of INGREDIENT_MAP) {
     if (entry.keywords.some((kw) => title.includes(kw))) {
       for (const item of entry.items) {
-        if (!results.find((r) => r.name === item.name)) {
-          results.push(item);
-        }
+        if (!results.find((r) => r.name === item.name)) results.push(item);
       }
+    }
+  }
+  // 食材名の直接マッチング（タイトルに食材名が入っている場合）
+  for (const food of FOOD_WORDS) {
+    if (title.includes(food.name) && !results.find((r) => r.name === food.name)) {
+      results.push(food);
     }
   }
   return results;
