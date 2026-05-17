@@ -90,6 +90,8 @@ const FOOD_WORDS: { name: string; category: Category }[] = [
   { name: "にんにく", category: "野菜" }, { name: "しょうが", category: "野菜" },
   { name: "アスパラ", category: "野菜" }, { name: "かぼちゃ", category: "野菜" },
   { name: "とうもろこし", category: "野菜" }, { name: "オクラ", category: "野菜" },
+  { name: "豆苗", category: "野菜" }, { name: "水菜", category: "野菜" },
+  { name: "春菊", category: "野菜" }, { name: "セロリ", category: "野菜" },
   // 豆腐・卵・乳製品
   { name: "豆腐", category: "豆腐・卵" }, { name: "納豆", category: "豆腐・卵" },
   { name: "厚揚げ", category: "豆腐・卵" }, { name: "油揚げ", category: "豆腐・卵" },
