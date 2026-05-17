@@ -50,12 +50,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "検索エラー" }, { status: res.status });
   }
 
-  const items = (data.organic ?? []).map((item: Record<string, unknown>) => ({
-    title: item.title,
-    link: item.link,
-    snippet: item.snippet,
-    image: (item.imageUrl as string) ?? null,
-  }));
+  // images セクションをドメインでインデックス化して organic にマッチング
+  const imageByDomain: Record<string, string> = {};
+  for (const img of (data.images ?? []) as Record<string, unknown>[]) {
+    try {
+      const domain = new URL(img.link as string).hostname;
+      if (!imageByDomain[domain]) imageByDomain[domain] = img.imageUrl as string;
+    } catch { /* ignore invalid URLs */ }
+  }
+
+  const items = (data.organic ?? []).map((item: Record<string, unknown>) => {
+    let image = (item.imageUrl as string) ?? null;
+    if (!image) {
+      try {
+        const domain = new URL(item.link as string).hostname;
+        image = imageByDomain[domain] ?? null;
+      } catch { /* ignore */ }
+    }
+    return { title: item.title, link: item.link, snippet: item.snippet, image };
+  });
 
   return NextResponse.json({ items });
 }
