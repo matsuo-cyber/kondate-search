@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 export type Recipe = {
   title: string;
   link: string;
@@ -14,14 +16,24 @@ type Props = {
 };
 
 export default function RecipeCard({ recipe, isFavorite, onToggleFavorite }: Props) {
+  const [imgSrc, setImgSrc] = useState<string | null>(recipe.image);
+
+  useEffect(() => {
+    if (recipe.image) return;
+    fetch(`/api/og-image?url=${encodeURIComponent(recipe.link)}`)
+      .then((r) => r.json())
+      .then(({ image }) => { if (image) setImgSrc(image); })
+      .catch(() => {});
+  }, [recipe.link, recipe.image]);
+
   return (
     <div className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white">
-      {recipe.image && (
+      {imgSrc && (
         <img
-          src={recipe.image}
+          src={imgSrc}
           alt={recipe.title}
           className="w-full h-40 object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          onError={() => setImgSrc(null)}
         />
       )}
       <div className="p-3">
