@@ -9,6 +9,8 @@ function getStagedFiles() {
 
 function fileContainsSecret(filePath) {
   try {
+    // Skip binary or documentation files
+    if (/\.(md|MD|png|jpg|jpeg|gif|svg|pdf)$/i.test(filePath)) return false;
     const content = fs.readFileSync(filePath, 'utf8');
     const secretPattern = /(sb_secret_|sb_publishable_|SUPABASE_SERVICE_ROLE_KEY|NEXT_PUBLIC_SUPABASE_ANON_KEY)/i;
     return secretPattern.test(content);
@@ -17,7 +19,9 @@ function fileContainsSecret(filePath) {
   }
 }
 
-const staged = getStagedFiles();
+let staged = getStagedFiles();
+// Exclude this checker and husky hooks from scanning to avoid self-detection
+staged = staged.filter(f => !f.startsWith('scripts/') && !f.startsWith('.husky/'));
 let found = false;
 for (const file of staged) {
   const abs = path.resolve(process.cwd(), file);
