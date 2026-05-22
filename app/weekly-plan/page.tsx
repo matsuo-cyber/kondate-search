@@ -171,7 +171,45 @@ export default function WeeklyPlanPage() {
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* モバイル：縦並びカード */}
+      <div className="md:hidden space-y-4">
+        {DAYS.map((day) => (
+          <div key={day} className="border rounded-lg overflow-hidden">
+            <div className="bg-gray-100 px-3 py-2 font-semibold text-gray-700 text-sm">
+              {day}曜日
+            </div>
+            {(["lunch", "dinner"] as const).map((meal) => {
+              const recipe = plan[day][meal];
+              return (
+                <div key={meal} className="flex items-start gap-2 p-2 border-t">
+                  <span className="text-xs text-gray-500 font-medium w-4 pt-1 shrink-0">
+                    {meal === "lunch" ? "昼" : "夜"}
+                  </span>
+                  {recipe ? (
+                    <div className="bg-orange-50 rounded p-2 text-xs flex-1">
+                      <a href={recipe.link} target="_blank" rel="noopener noreferrer"
+                        className="text-orange-600 hover:underline line-clamp-2 block">
+                        {recipe.title}
+                      </a>
+                      <button onClick={() => remove(day, meal)} className="text-gray-400 hover:text-red-400 mt-1">
+                        ✕ 削除
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setSelecting({ day, meal })}
+                      className="flex-1 h-10 border border-dashed border-gray-300 rounded text-gray-400 hover:border-orange-400 hover:text-orange-400 text-xs transition-colors">
+                      ＋
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* デスクトップ：横並びテーブル */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
