@@ -44,11 +44,13 @@ export async function GET(request: NextRequest) {
     }),
   });
 
-  const data = await res.json();
-
   if (!res.ok) {
-    return NextResponse.json({ error: "検索エラー" }, { status: res.status });
+    const text = await res.text();
+    console.error("Serper API error:", res.status, text);
+    return NextResponse.json({ error: "検索エラー: " + res.status }, { status: res.status });
   }
+
+  const data = await res.json();
 
   // images セクションをドメインでインデックス化して organic にマッチング
   const imageByDomain: Record<string, string> = {};
