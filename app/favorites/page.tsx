@@ -5,7 +5,7 @@ import RecipeCard, { Recipe } from "@/components/RecipeCard";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 10;
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<Recipe[]>([]);
